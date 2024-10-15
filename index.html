@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Washer Method Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000000;
+            color: #ffffff;
+        }
+        #container {
+            width: 100vw;
+            height: 80vh;
+        }
+        #controls {
+            width: 100vw;
+            height: 20vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #333333;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+        #control-panel {
+            margin: 10px;
+        }
+        #header {
+            font-size: 24px;
+            margin-top: 10px;
+        }
+        #volume {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #222222;
+            padding: 10px;
+            border: 1px solid #444;
+            color: #ffffff;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+        }
+        #controls input, #controls button, #controls select {
+            margin: 5px;
+            color: #ffffff;
+            background: #444444;
+            border: 1px solid #777777;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="controls">
+        <div id="header">Rotation Over Y Axis</div>
+        <div id="control-panel">
+            <label for="functionSelect">Select Function:</label>
+            <select id="functionSelect">
+                <option value="sin">y = sin(x) + 2</option>
+                <option value="cos">y = cos(x) + 3</option>
+                <option value="exp">y = e^(x/4)</option>
+            </select>
+            <label for="startX">Start X:</label>
+            <input type="number" id="startX" min="0" max="5" step="1" value="1">
+            <label for="endX">End X:</label>
+            <input type="number" id="endX" min="0" max="5" step="1" value="3">
+            <button id="rotateButton">Rotate</button>
+        </div>
+    </div>
+    <div id="volume">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <mi>V</mi>
+            <mo>=</mo>
+            <msubsup>
+                <mo>&#x222B;</mo>
+                <mi>a</mi>
+                <mi>b</mi>
+            </msubsup>
+            <mn>2</mn>
+            <mo>&#x3c0;</mo>
+            <mi>R</mi>
+            <mi>h</mi>
+            <mo>d</mo>
+            <mi>r</mi>
+        </math> <br>
+        Volume of Solid: <span id="volumeValue"></span>
+    </div>
+
+    <script>
+        // Set up scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight * 0.8);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // Create OrbitControls to allow user interaction
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        // Create a grid helper
+        const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x888888);
+        scene.add(gridHelper);
+
+        // Create an AxesHelper to visualize axes
+        const axesHelper = new THREE.AxesHelper(10);
+        scene.add(axesHelper);
+
+        // Create function line geometry
+        const functionPoints = generateFunctionPoints('sin', 0, 5, 0.1);
+        const functionGeometry = new THREE.BufferGeometry().setFromPoints(functionPoints);
+        const functionMaterial = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 4 });
+        let functionLine = new THREE.Line(functionGeometry, functionMaterial);
+        scene.add(functionLine);
+
+        // Add light to the scene
+        const light = new THREE.AmbientLight(0xffffff, 0.9);
+        scene.add(light);
+
+        // Set camera position
+        camera.position.set(0, 10, 20);
+        controls.update();
+
+        // Function to generate points for a given function y = f(x)
+        function generateFunctionPoints(funcType, start, end, step) {
+            const points = [];
+            for (let x = start; x <= end; x += step) {
+                let y;
+                switch (funcType) {
+                    case 'cos':
+                        y = Math.cos(x) + 3;
+                        break;
+                    case 'exp':
+                        y = Math.exp(x / 4);
+                        break;
+                    case 'sin':
+                    default:
+                        y = Math.sin(x) + 2;
+                        break;
+                }
+                points.push(new THREE.Vector3(x, y, 0));
+            }
+            return points;
+        }
+
+        // Function to create washer geometry by revolving the function around the y-axis
+        function createWasherGeometry(funcType, startX, endX) {
+            const points = [];
+            for (let x = startX; x <= endX; x += 0.1) {
+                let y;
+                switch (funcType) {
+                    case 'cos':
+                        y = Math.cos(x) + 3;
+                        break;
+                    case 'exp':
+                        y = Math.exp(x / 4);
+                        break;
+                    case 'sin':
+                    default:
+                        y = Math.sin(x) + 2;
+                        break;
+                }
+                points.push(new THREE.Vector2(x, 0));
+                points.push(new THREE.Vector2(x, y));
+            }
+            return new THREE.LatheGeometry(points, 100);
+        }
+
+        // Function to calculate volume using the washer method
+        function calculateVolume(funcType, startX, endX) {
+            let volume = 0;
+            const step = 0.1;
+            for (let x = startX; x < endX; x += step) {
+                let y;
+                switch (funcType) {
+                    case 'cos':
+                        y = Math.cos(x) + 3;
+                        break;
+                    case 'exp':
+                        y = Math.exp(x / 4);
+                        break;
+                    case 'sin':
+                    default:
+                        y = Math.sin(x) + 2;
+                        break;
+                }
+                volume += 2 * Math.PI * x * y * step;
+            }
+            return volume;
+        }
+
+        let washer;
+
+        // Button click event to create washer geometry
+        document.getElementById('rotateButton').addEventListener('click', () => {
+            const funcType = document.getElementById('functionSelect').value;
+            const startX = parseFloat(document.getElementById('startX').value);
+            const endX = parseFloat(document.getElementById('endX').value);
+
+            if (startX >= endX) {
+                alert("Start X must be less than End X!");
+                return;
+            }
+
+            // Remove old washer and function line if they exist
+            if (washer) {
+                scene.remove(washer);
+                washer.geometry.dispose();
+            }
+            scene.remove(functionLine);
+            functionLine.geometry.dispose();
+
+            // Create new function line and add to scene
+            const newFunctionPoints = generateFunctionPoints(funcType, 0, 5, 0.1);
+            const newFunctionGeometry = new THREE.BufferGeometry().setFromPoints(newFunctionPoints);
+            functionLine = new THREE.Line(newFunctionGeometry, functionMaterial);
+            scene.add(functionLine);
+
+            // Create new washer geometry and add to scene
+            const washerGeometry = createWasherGeometry(funcType, startX, endX);
+            const washerMaterial = new THREE.MeshStandardMaterial({ color: 0x00aaff, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+            washer = new THREE.Mesh(washerGeometry, washerMaterial);
+            scene.add(washer);
+
+            // Calculate and display volume
+            const volume = calculateVolume(funcType, startX, endX);
+            document.getElementById('volumeValue').innerText = volume.toFixed(2);
+        });
+
+        // Animate the scene
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Resize listener to maintain aspect ratio
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight * 0.8);
+        });
+    </script>
+</body>
+</html>
